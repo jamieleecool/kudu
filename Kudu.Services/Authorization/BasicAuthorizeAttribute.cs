@@ -7,6 +7,7 @@
 using System;
 using System.Text;
 using System.Web.Mvc;
+using System.Configuration;
 
 namespace Kudu.Services.Authorization {
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
@@ -18,6 +19,12 @@ namespace Kudu.Services.Authorization {
         }
 
         public override void OnAuthorization(AuthorizationContext filterContext) {
+            bool enableAuthentication;
+            if (Boolean.TryParse(ConfigurationManager.AppSettings["enableAuthentication"], out enableAuthentication) && 
+                !enableAuthentication) {
+                return;
+            }
+
             var authorizationHeader = filterContext.HttpContext.Request.Headers["Authorization"];
 
             if (!String.IsNullOrEmpty(authorizationHeader)) {

@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Kudu.Core.Infrastructure;
 using Kudu.Core.SourceControl.Git;
 using Mercurial;
+using System.IO;
 
 namespace Kudu.Core.SourceControl.Hg {
     public class HgRepository : IRepository {
@@ -17,13 +18,11 @@ namespace Kudu.Core.SourceControl.Hg {
         }
 
         public string CurrentId {
-            get {
-                string id = _repository.Identify();
-
-                Changeset changeSet = _repository.Log(id).SingleOrDefault();
+            get {                
+                ChangeSet changeSet = GetChanges(0, 1).SingleOrDefault();
                 if (changeSet != null) {
                     // Get the full hash
-                    return changeSet.Hash;
+                    return changeSet.Id;
                 }
                 return null;
             }
@@ -101,7 +100,17 @@ namespace Kudu.Core.SourceControl.Hg {
         }
 
         public void RevertFile(string path) {
-            _repository.Remove(path);
+            _repository.Remove(path, new RemoveCommand {
+                ForceRemoval = true
+            });
+
+            var lookup = GetStatus().ToDictionary(p => p.Path);
+            FileStatus status;
+            if (!lookup.TryGetValue(path, out status) || 
+                status.Status == ChangeType.Untracked) {
+                string fullPath = Path.Combine(_hgExe.WorkingDirectory, path);
+                File.Delete(fullPath);
+            }
         }
 
         public ChangeSet Commit(string authorName, string message) {

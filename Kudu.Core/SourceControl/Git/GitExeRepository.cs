@@ -371,7 +371,7 @@ namespace Kudu.Core.SourceControl.Git {
                 int? currentRight = null;
                 string line = reader.ReadLine();
 
-                if (line.Equals(@"\ No newline at end of file", StringComparison.OrdinalIgnoreCase)) {
+                if (line.Equals(@"\\ No newline at end of file", StringComparison.OrdinalIgnoreCase)) {
                     continue;
                 }
 

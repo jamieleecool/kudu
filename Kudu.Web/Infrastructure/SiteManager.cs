@@ -2,13 +2,21 @@
 using System.IO;
 using System.Web;
 using Kudu.Core.Infrastructure;
-using Kudu.Web.Models;
 using IIS = Microsoft.Web.Administration;
 
 namespace Kudu.Web.Infrastructure {
-    public class SiteManager : ISiteManager {
-        // Hard code the path to the services site (makes it easier to debug)
-        private static readonly string ServiceSitePath = Path.GetFullPath(Path.Combine(HttpRuntime.AppDomainAppPath, "..", "Kudu.Services.Web"));
+    public class SiteManager : ISiteManager {        
+        private readonly string _servicesSitePath;
+
+#if WEB
+        public SiteManager() {
+            // Hard code the path to the services site (makes it easier to debug) 
+            _servicesSitePath = Path.GetFullPath(Path.Combine(HttpRuntime.AppDomainAppPath, "..", "Kudu.Services.Web"));
+        }
+#endif
+        public SiteManager(string servicesSitePath) {
+            _servicesSitePath = Path.GetFullPath(servicesSitePath);
+        }
 
         public Site CreateSite(string siteName) {
             var iis = new IIS.ServerManager();
@@ -22,7 +30,7 @@ namespace Kudu.Web.Infrastructure {
 
                 // Get the port of the site
                 int servicePort = serviceSite.Bindings[0].EndPoint.Port;
-                var serviceApp = serviceSite.Applications.Add("/" + siteName, ServiceSitePath);
+                var serviceApp = serviceSite.Applications.Add("/" + siteName, _servicesSitePath);
                 serviceApp.ApplicationPoolName = kuduAppPool.Name;
 
                 // Get the path to the website
@@ -64,7 +72,7 @@ namespace Kudu.Web.Infrastructure {
         private IIS.Site GetServiceSite(IIS.ServerManager iis, IIS.ApplicationPool appPool) {
             var site = iis.Sites["kudu_services"];
             if (site == null) {
-                site = iis.Sites.Add("kudu_services", ServiceSitePath, GetRandomPort());
+                site = iis.Sites.Add("kudu_services", _servicesSitePath, GetRandomPort());
                 site.ApplicationDefaults.ApplicationPoolName = appPool.Name;
             }
             return site;
@@ -79,7 +87,13 @@ namespace Kudu.Web.Infrastructure {
             var iis = new IIS.ServerManager();
             var site = iis.Sites[siteName];
             if (site != null) {
-                site.Stop();
+                try {
+                    site.Stop();
+                }
+                catch {
+                    // Ignore this exception, we don't really care if the site failed to stop
+                }
+
                 string physicalPath = site.Applications[0].VirtualDirectories[0].PhysicalPath;
                 DeleteSafe(physicalPath);
                 iis.Sites.Remove(site);
@@ -98,8 +112,8 @@ namespace Kudu.Web.Infrastructure {
             iis.CommitChanges();
         }
 
-        private static string GetApplicationPath(string applicationName) {
-            return Path.GetFullPath(Path.Combine(ServiceSitePath, "..", "apps", applicationName));
+        private string GetApplicationPath(string applicationName) {
+            return Path.GetFullPath(Path.Combine(_servicesSitePath, "..", "apps", applicationName));
         }
 
         private static void DeleteSafe(string physicalPath) {

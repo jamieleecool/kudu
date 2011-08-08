@@ -54,8 +54,10 @@ namespace Kudu.Core.Infrastructure {
                 copyStream.BeginInvoke(input, process.StandardInput.BaseStream, true, null, null);
             }
 
-            // Copy the exe's output into the output stream
-            copyStream.BeginInvoke(process.StandardOutput.BaseStream, output, false, null, null);
+            if (output != null) {
+                // Copy the exe's output into the output stream
+                copyStream.BeginInvoke(process.StandardOutput.BaseStream, output, false, null, null);
+            }
 
             process.WaitForExit();
 
